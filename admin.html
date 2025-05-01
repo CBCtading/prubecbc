@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin | CBC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #4895ef;
+            --dark: #14213d;
+            --light: #f8f9fa;
+            --danger: #f72585;
+            --cbc: #7209b7;
+            --sidebar: #1a1a2e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: var(--sidebar);
+            color: white;
+            padding: 1.5rem;
+            position: fixed;
+            height: 100%;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-header i {
+            font-size: 2rem;
+            color: var(--cbc);
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .sidebar-menu a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+            width: 100%;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .user-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            position: relative;
+            border-left: 4px solid var(--cbc);
+        }
+
+        .user-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--cbc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .user-balance {
+            font-size: 1.5rem;
+            color: var(--cbc);
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-logout {
+            background: var(--danger);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-coins"></i>
+            <h2>Admin CBC</h2>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="#"><i class="fas fa-users"></i> Usuarios</a></li>
+            <li><a href="#"><i class="fas fa-chart-line"></i> Estadísticas</a></li>
+            <li><a href="#"><i class="fas fa-cog"></i> Configuración</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Gestión de Usuarios</h1>
+            <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+        </div>
+        
+        <div class="user-grid" id="usersContainer">
+            <!-- Usuarios se cargarán aquí -->
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB3_jgunEavIbXhDfNa89giXITKqA8k22o",
+            authDomain: "sistema-51efc.firebaseapp.com",
+            projectId: "sistema-51efc",
+            storageBucket: "sistema-51efc.firebasestorage.app",
+            messagingSenderId: "950545396950",
+            appId: "1:950545396950:web:cff9ec4eb6b76516df0577",
+            measurementId: "G-3L0ST3XP6B"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+
+        // Cargar usuarios
+        function loadUsers() {
+            db.collection("users").onSnapshot(snapshot => {
+                document.getElementById("usersContainer").innerHTML = "";
+                snapshot.forEach(doc => {
+                    if(doc.data().role !== "admin") {
+                        createUserCard(doc.id, doc.data());
+                    }
+                });
+            });
+        }
+
+        function createUserCard(userId, user) {
+            const card = document.createElement("div");
+            card.className = "user-card";
+            card.innerHTML = `
+                <div class="user-header">
+                    <div class="user-avatar">${user.email.substring(0,2).toUpperCase()}</div>
+                    <div>
+                        <h3>${user.email}</h3>
+                        <small>ID: ${userId.substring(0,8)}...</small>
+                    </div>
+                </div>
+                <div class="user-balance">${user.balance || 0} CBC</div>
+                <div class="user-actions">
+                    <button class="btn btn-primary" onclick="handleOperation('${userId}', 'add')">
+                        <i class="fas fa-plus"></i> Recargar
+                    </button>
+                    <button class="btn btn-danger" onclick="handleOperation('${userId}', 'subtract')">
+                        <i class="fas fa-minus"></i> Retirar
+                    </button>
+                </div>
+            `;
+            document.getElementById("usersContainer").appendChild(card);
+        }
+
+        window.handleOperation = async (userId, type) => {
+            const amount = prompt(`Ingrese cantidad a ${type === 'add' ? 'recargar' : 'retirar'}:`);
+            if(!amount || isNaN(amount)) return;
+
+            const userRef = db.collection("users").doc(userId);
+            const userDoc = await userRef.get();
+            const currentBalance = userDoc.data().balance || 0;
+
+            const newBalance = type === 'add' ? 
+                currentBalance + parseFloat(amount) : 
+                currentBalance - parseFloat(amount);
+
+            if(newBalance < 0) return alert("Saldo insuficiente");
+
+            await userRef.update({ balance: newBalance });
+            alert("Operación exitosa!");
+        };
+
+        auth.onAuthStateChanged(async user => {
+            if(user) {
+                currentUser = user;
+                const userDoc = await db.collection("users").doc(user.uid).get();
+                if(!userDoc.exists || (userDoc.data().role !== "admin" && user.email !== "orelemcc17@gmail.com")) {
+                    window.location.href = "usuario.html";
+                }
+                loadUsers();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            auth.signOut();
+        });
+    </script>
+</body>
+</html>

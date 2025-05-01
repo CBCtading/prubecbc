@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Cuenta | CBC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --cbc: #7209b7;
+            --danger: #f72585;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .user-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .balance-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--cbc);
+        }
+
+        .balance-amount {
+            font-size: 2.5rem;
+            color: var(--cbc);
+            margin: 1rem 0;
+        }
+
+        .transactions {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .btn-logout {
+            background: var(--danger);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-container">
+        <div class="header">
+            <h1><i class="fas fa-wallet"></i> Mi Cuenta CBC</h1>
+            <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+        </div>
+
+        <div class="balance-card">
+            <h2>Saldo Disponible</h2>
+            <div class="balance-amount" id="balance">0 CBC</div>
+            <p>Actualizado: <span id="updateDate">--/--/----</span></p>
+        </div>
+
+        <div class="transactions">
+            <h2><i class="fas fa-list"></i> Últimas Transacciones</h2>
+            <div id="transactionsList"></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB3_jgunEavIbXhDfNa89giXITKqA8k22o",
+            authDomain: "sistema-51efc.firebaseapp.com",
+            projectId: "sistema-51efc",
+            storageBucket: "sistema-51efc.firebasestorage.app",
+            messagingSenderId: "950545396950",
+            appId: "1:950545396950:web:cff9ec4eb6b76516df0577",
+            measurementId: "G-3L0ST3XP6B"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        auth.onAuthStateChanged(async user => {
+            if(user) {
+                // Verificar si es admin
+                const userDoc = await db.collection("users").doc(user.uid).get();
+                if(userDoc.data().role === "admin" || user.email === "orelemcc17@gmail.com") {
+                    window.location.href = "admin.html";
+                    return;
+                }
+
+                // Cargar datos del usuario
+                loadUserData(user.uid);
+                loadTransactions(user.uid);
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function loadUserData(userId) {
+            db.collection("users").doc(userId).onSnapshot(doc => {
+                const data = doc.data();
+                document.getElementById("balance").textContent = `${data.balance || 0} CBC`;
+                document.getElementById("updateDate").textContent = new Date().toLocaleDateString();
+            });
+        }
+
+        function loadTransactions(userId) {
+            db.collection("transactions")
+                .where("userId", "==", userId)
+                .orderBy("timestamp", "desc")
+                .limit(5)
+                .onSnapshot(snapshot => {
+                    const container = document.getElementById("transactionsList");
+                    container.innerHTML = "";
+                    
+                    snapshot.forEach(doc => {
+                        const transaction = doc.data();
+                        const item = document.createElement("div");
+                        item.className = "transaction-item";
+                        item.innerHTML = `
+                            <div>
+                                <h3>${transaction.type === 'add' ? 'Recarga' : 'Retiro'}</h3>
+                                <small>${new Date(transaction.timestamp?.toDate()).toLocaleString()}</small>
+                            </div>
+                            <div style="color: ${transaction.type === 'add' ? 'green' : 'red'}">
+                                ${transaction.type === 'add' ? '+' : '-'}${transaction.amount} CBC
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                });
+        }
+
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            auth.signOut();
+        });
+    </script>
+</body>
+</html>
